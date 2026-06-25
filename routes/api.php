@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use App\Http\Controllers\Api\RobotController;
 
 Route::get('/health', function () {
     try {
@@ -48,6 +49,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me',        [AuthController::class, 'me']);
         Route::post('/register', [AuthController::class, 'register']);
     });
+    // Robot routes
+    Route::apiResource('robots', RobotController::class);
+    Route::post('robots/{robot}/rotate-token', [RobotController::class, 'rotateToken'])
+         ->name('robots.rotate-token');
 
 });
 
