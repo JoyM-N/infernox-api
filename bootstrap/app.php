@@ -20,4 +20,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+        // Tell Sanctum to return JSON 401 instead of
+    // redirecting to a named 'login' route that doesn't exist
+    $exceptions->render(function (
+        \Illuminate\Auth\AuthenticationException $e,
+        Request $request
+    ) {
+        if ($request->is('api/*')) {
+            return response()->json([
+                'message' => 'Unauthenticated. Please login first.',
+            ], 401);
+        }
+    });
     })->create();

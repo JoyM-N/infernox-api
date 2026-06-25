@@ -1,11 +1,10 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Api\AuthController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 
-// PUBLIC ROUTES — no authentication required
 Route::get('/health', function () {
     try {
         DB::connection()->getPdo();
@@ -33,14 +32,27 @@ Route::get('/health', function () {
     ]);
 });
 
-// AUTHENTICATED ROUTES — human operators
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
+// Auth routes — public, no token needed
+Route::prefix('auth')->group(function () {
+    Route::post('/login',  [AuthController::class, 'login']);
 });
 
-// ROBOT ROUTES — authenticated via robot API token
+
+// PROTECTED ROUTES — requires valid Bearer token
+
+Route::middleware('auth:sanctum')->group(function () {
+
+    // Auth
+    Route::prefix('auth')->group(function () {
+        Route::post('/logout',   [AuthController::class, 'logout']);
+        Route::get('/me',        [AuthController::class, 'me']);
+        Route::post('/register', [AuthController::class, 'register']);
+    });
+
+});
+
+// ROBOT ROUTES — robot token authentication
+
 Route::prefix('robot')->group(function () {
-    // Robot routes will go here in Phase 4
+    // Robot routes coming in Phase 4
 });
