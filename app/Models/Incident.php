@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FireType;
 use App\Enums\IncidentStatus;
 use App\Enums\IncidentSeverity;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -19,6 +20,8 @@ class Incident extends Model
         'robot_id',
         'status',
         'severity',
+        'fire_type',                   
+        'recommended_extinguisher', 
         'lat',
         'lng',
         'peak_temperature',
@@ -32,6 +35,7 @@ class Incident extends Model
         return [
             'status'            => IncidentStatus::class,
             'severity'          => IncidentSeverity::class,
+            'fire_type'         => FireType::class,
             'lat'               => 'decimal:7',
             'lng'               => 'decimal:7',
             'peak_temperature'  => 'float',
