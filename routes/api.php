@@ -61,3 +61,14 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::prefix('robot')->group(function () {
     // Robot routes coming in Phase 4
 });
+
+// ROBOT ROUTES — robot token authentication
+Route::prefix('robot')->middleware('auth:sanctum')->group(function () {
+
+    // Robot submits sensor data
+    Route::post('/telemetry', [
+        \App\Http\Controllers\Robot\TelemetryController::class,
+        'store'
+    ])->name('robot.telemetry.store');
+
+});
