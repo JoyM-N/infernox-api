@@ -1,11 +1,17 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
+use App\Http\Controllers\Api\CommandController;
+use App\Http\Controllers\Api\IncidentController;
 use App\Http\Controllers\Api\RobotController;
+use App\Http\Controllers\Robot\TelemetryController;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 
+// ─────────────────────────────────────────────
+// PUBLIC ROUTES
+// ─────────────────────────────────────────────
 Route::get('/health', function () {
     try {
         DB::connection()->getPdo();
@@ -33,14 +39,13 @@ Route::get('/health', function () {
     ]);
 });
 
-// Auth routes — public, no token needed
 Route::prefix('auth')->group(function () {
-    Route::post('/login',  [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login']);
 });
 
-
-// PROTECTED ROUTES — requires valid Bearer token
-
+// ─────────────────────────────────────────────
+// HUMAN OPERATOR ROUTES
+// ─────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
 
     // Auth
@@ -49,26 +54,41 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me',        [AuthController::class, 'me']);
         Route::post('/register', [AuthController::class, 'register']);
     });
-    // Robot routes
+
+    // Robots
     Route::apiResource('robots', RobotController::class);
     Route::post('robots/{robot}/rotate-token', [RobotController::class, 'rotateToken'])
          ->name('robots.rotate-token');
 
+    // Commands — send to robot, list for robot
+    Route::post('robots/{robot}/commands', [CommandController::class, 'send'])
+         ->name('robots.commands.send');
+    Route::get('robots/{robot}/commands',  [CommandController::class, 'index'])
+         ->name('robots.commands.index');
+
+    // Incidents
+    Route::apiResource('incidents', IncidentController::class)->only([
+        'index', 'show', 'update'
+    ]);
+    Route::post('incidents/{incident}/updates', [IncidentController::class, 'addUpdate'])
+         ->name('incidents.updates.store');
+
 });
 
-// ROBOT ROUTES — robot token authentication
-
-Route::prefix('robot')->group(function () {
-    // Robot routes coming in Phase 4
-});
-
-// ROBOT ROUTES — robot token authentication
+// ─────────────────────────────────────────────
+// ROBOT ROUTES — robot token only
+// ─────────────────────────────────────────────
 Route::prefix('robot')->middleware('auth:sanctum')->group(function () {
 
-    // Robot submits sensor data
-    Route::post('/telemetry', [
-        \App\Http\Controllers\Robot\TelemetryController::class,
-        'store'
-    ])->name('robot.telemetry.store');
+    // Telemetry
+    Route::post('/telemetry', [TelemetryController::class, 'store'])
+         ->name('robot.telemetry.store');
+
+    // Commands
+    Route::get('/commands/pending', [\App\Http\Controllers\Robot\CommandController::class, 'pending'])
+         ->name('robot.commands.pending');
+
+    Route::patch('/commands/{command}/acknowledge', [\App\Http\Controllers\Robot\CommandController::class, 'acknowledge'])
+         ->name('robot.commands.acknowledge');
 
 });
