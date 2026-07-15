@@ -23,7 +23,7 @@ class StoreTelemetryRequest extends FormRequest
             'gps.lng'       => ['required_with:gps', 'numeric', 'between:-180,180'],
 
             // Battery 0-100
-            'battery'       => ['nullable', 'integer', 'between:0,100'],
+            'battery'       => ['nullable', 'numeric', 'between:0,100'],
 
             // Sensor readings
             'temperature'   => ['nullable', 'numeric'],

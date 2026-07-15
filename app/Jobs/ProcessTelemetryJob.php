@@ -49,7 +49,7 @@ class ProcessTelemetryJob implements ShouldQueue
             'robot_id'      => $this->robotId,
             'lat'           => $this->payload['gps']['lat']   ?? null,
             'lng'           => $this->payload['gps']['lng']   ?? null,
-            'battery_level' => $this->payload['battery']      ?? null,
+            'battery_level' => isset($this->payload['battery']) ? (int) $this->payload['battery'] : null,            
             'temperature'   => $this->payload['temperature']  ?? null,
             'smoke_level'   => $this->payload['smoke_level']  ?? null,
             'fire_detected' => $this->payload['fire_detected'] ?? false,
