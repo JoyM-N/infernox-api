@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\IncidentUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\AddIncidentUpdateRequest;
 use App\Http\Requests\Api\UpdateIncidentRequest;
@@ -12,6 +13,7 @@ use App\Models\IncidentUpdate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Auth;
 
 class IncidentController extends Controller
 {
@@ -65,24 +67,24 @@ class IncidentController extends Controller
         Incident $incident
     ): IncidentResource {
         $data = $request->validated();
-
-        // If operator manually sets fire type
-        // auto-set the extinguisher recommendation
+    
         if (isset($data['fire_type'])) {
             $fireType = \App\Enums\FireType::from($data['fire_type']);
             $data['recommended_extinguisher'] = $fireType->recommendedExtinguisher();
         }
-
-        // If resolving, record the time
+    
         if (isset($data['status']) &&
             in_array($data['status'], ['resolved', 'false_alarm']) &&
             ! $incident->resolved_at
         ) {
             $data['resolved_at'] = now();
         }
-
+    
         $incident->update($data);
-
+    
+        // Broadcast the update
+        broadcast(new IncidentUpdated($incident->fresh()));
+    
         return new IncidentResource(
             $incident->fresh()->load(['robot', 'updates.user'])
         );
@@ -98,7 +100,7 @@ class IncidentController extends Controller
     ): JsonResponse {
         $update = IncidentUpdate::create([
             'incident_id'  => $incident->id,
-            'user_id'      => auth()->id(),
+            'user_id'      => Auth::id(),
             'note'         => $request->note,
             'action_taken' => $request->action_taken,
         ]);

@@ -43,6 +43,8 @@ class StoreTelemetryRequest extends FormRequest
 
             // Optional image captured at this moment
             'image_path'    => ['nullable', 'string'],
+
+            'image' => ['nullable', 'file', 'image', 'max:5120'],
         ];
     }
 

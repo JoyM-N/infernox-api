@@ -57,7 +57,7 @@ class IncidentDetectionService
     private function openIncident(TelemetryReading $reading): Incident
     {
         $fireType = $this->classifyFireType($reading);
-
+    
         $incident = Incident::create([
             'robot_id'                 => $reading->robot_id,
             'status'                   => IncidentStatus::OPEN,
@@ -70,10 +70,10 @@ class IncidentDetectionService
             'peak_smoke_level'         => $reading->smoke_level,
             'detected_at'              => $reading->recorded_at,
         ]);
-
-        // TODO: broadcast IncidentOpened event (Phase 6 — WebSockets)
-        // TODO: notify operators (Phase 6 — Notifications)
-
+    
+        // Broadcast to dashboard — operators see alert immediately
+        broadcast(new \App\Events\IncidentOpened($incident));
+    
         return $incident;
     }
 

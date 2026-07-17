@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\CommandStatus;
+use App\Events\CommandDispatched;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SendCommandRequest;
 use App\Http\Resources\CommandResource;
 use App\Models\Robot;
 use App\Models\RobotCommand;
-use App\Enums\CommandStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CommandController extends Controller
 {
@@ -43,13 +45,15 @@ class CommandController extends Controller
 
         $command = RobotCommand::create([
             'robot_id'     => $robot->id,
-            'issued_by'    => auth()->id(),
+            'issued_by'    => Auth::id(),
             'incident_id'  => $request->incident_id ?? null,
             'command_type' => $request->command_type,
             'payload'      => $request->payload ?? null,
             'status'       => CommandStatus::PENDING,
             'issued_at'    => now(),
         ]);
+        // Broadcast to dashboard and robot channel
+        broadcast(new CommandDispatched($command));
 
         return response()->json([
             'message' => 'Command dispatched successfully.',

@@ -36,20 +36,21 @@ class ProcessTelemetryJob implements ShouldQueue
 
     public function handle(IncidentDetectionService $detection): void
     {
-        // Step 1 — Find the robot
         $robot = Robot::find($this->robotId);
-
+    
         if (! $robot) {
             Log::warning("ProcessTelemetryJob: Robot {$this->robotId} not found");
             return;
         }
-
-        // Step 2 — Save the telemetry reading to DB
+    
+        // Save telemetry
         $reading = TelemetryReading::create([
             'robot_id'      => $this->robotId,
             'lat'           => $this->payload['gps']['lat']   ?? null,
             'lng'           => $this->payload['gps']['lng']   ?? null,
-            'battery_level' => isset($this->payload['battery']) ? (int) $this->payload['battery'] : null,            
+            'battery_level' => isset($this->payload['battery'])
+                                ? (int) $this->payload['battery']
+                                : null,
             'temperature'   => $this->payload['temperature']  ?? null,
             'smoke_level'   => $this->payload['smoke_level']  ?? null,
             'fire_detected' => $this->payload['fire_detected'] ?? false,
@@ -57,15 +58,16 @@ class ProcessTelemetryJob implements ShouldQueue
             'raw_payload'   => $this->payload,
             'recorded_at'   => $this->payload['timestamp'],
         ]);
-        // Step 3 — Update robot's last known state
-        // Store in Redis for fast dashboard reads
-        // Also update MySQL for persistence
+    
+        // Update robot snapshot
         $this->updateRobotSnapshot($robot, $reading);
-
-        // Step 4 — Run incident detection rules
-        // Opens an incident if fire is detected
+    
+        // Run incident detection
         $detection->evaluate($reading);
-
+    
+        // Broadcast to WebSocket — dashboard updates in real time
+        broadcast(new \App\Events\TelemetryReceived($reading));
+    
         Log::info("Telemetry processed for robot {$this->robotId}", [
             'temp'          => $reading->temperature,
             'smoke'         => $reading->smoke_level,

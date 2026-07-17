@@ -2,13 +2,18 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateIncidentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->hasAnyRole(['super_admin', 'operator']);
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        return $user?->hasAnyRole(['super_admin', 'operator']) ?? false;
     }
 
     public function rules(): array
