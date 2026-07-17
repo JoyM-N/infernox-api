@@ -2,15 +2,19 @@
 
 namespace App\Http\Requests\Robot;
 
+use App\Models\Robot;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreTelemetryRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // Only authenticated robots can submit telemetry
-        // The robot authenticates using its API token
-        return auth('sanctum')->check();
+        $actor = auth('sanctum')->user();
+
+        // Robot tokens carry explicit scopes; human operator tokens use ['*']
+        // so we must verify the tokenable is a Robot, not just auth + ability.
+        return $actor instanceof Robot
+            && $actor->tokenCan('telemetry:write');
     }
 
     public function rules(): array

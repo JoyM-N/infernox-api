@@ -27,6 +27,7 @@ class AuthController extends Controller
             ], 401);
         }
 
+        /** @var User $user */
         $user = Auth::user();
 
         // Check if account is active
@@ -69,10 +70,12 @@ class AuthController extends Controller
     // ─────────────────────────────────────────────
     public function logout(Request $request): JsonResponse
     {
-        // Delete only the current token
-        // Other sessions on other devices stay active
-        $request->user()->currentAccessToken()->delete();
-
+        // Check if there's an actual token to delete
+        // actingAs() in tests doesn't create a real token
+        if ($request->user()->currentAccessToken()) {
+            $request->user()->currentAccessToken()->delete();
+        }
+    
         return response()->json([
             'message' => 'Logged out successfully.',
         ]);
@@ -85,6 +88,7 @@ class AuthController extends Controller
     // ─────────────────────────────────────────────
     public function me(Request $request): JsonResponse
     {
+        /** @var User $user */
         $user = $request->user();
 
         return response()->json([
