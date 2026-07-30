@@ -2,14 +2,19 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class CreateRobotRequest extends FormRequest
 {
     public function authorize(): bool
     {
         // Only super_admin can provision new robots
-        return auth()->user()->hasRole('super_admin');
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        return $user?->hasRole('super_admin') ?? false;
     }
 
     public function rules(): array

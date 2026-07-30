@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\FireType;
 use App\Enums\IncidentStatus;
 use App\Enums\IncidentSeverity;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,16 +19,20 @@ class Incident extends Model
 
     protected $fillable = [
         'robot_id',
+        'assigned_operator_id',
         'status',
         'severity',
-        'fire_type',                   
-        'recommended_extinguisher', 
+        'fire_type',
+        'recommended_extinguisher',
         'lat',
         'lng',
         'peak_temperature',
         'peak_smoke_level',
         'detected_at',
         'resolved_at',
+        'is_locked',
+        'locked_by',
+        'locked_at',
     ];
 
     protected function casts(): array
@@ -42,12 +47,24 @@ class Incident extends Model
             'peak_smoke_level'  => 'float',
             'detected_at'       => 'datetime',
             'resolved_at'       => 'datetime',
+            'is_locked'         => 'boolean',
+            'locked_at'         => 'datetime',
         ];
     }
 
     public function robot(): BelongsTo
     {
         return $this->belongsTo(Robot::class);
+    }
+
+    public function assignedOperator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_operator_id');
+    }
+
+    public function lockedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'locked_by');
     }
 
     public function updates(): HasMany
@@ -60,7 +77,7 @@ class Incident extends Model
         return $this->hasMany(RobotCommand::class);
     }
 
-    public function scopeActive($query)
+    public function scopeActive(Builder $query): Builder
     {
         return $query->whereIn('status', [
             'open',
@@ -68,7 +85,6 @@ class Incident extends Model
             'suppressing',
         ]);
     }
-
 
     public function isActive(): bool
     {
@@ -87,7 +103,11 @@ class Incident extends Model
         ]);
     }
 
- 
+    public function isLocked(): bool
+    {
+        return $this->is_locked === true;
+    }
+
     public function updatePeakReadings(TelemetryReading $reading): void
     {
         $this->update([

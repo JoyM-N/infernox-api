@@ -2,14 +2,20 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class RegisterRequest extends FormRequest
 {
     public function authorize(): bool
     {
- // Only super_admin can register new operator accounts but regular users cannot sign themselves up
-        return auth()->check() && auth()->user()->hasRole('super_admin');
+        // Only super_admin can register new operator accounts —
+        // regular users cannot sign themselves up
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        return $user?->hasRole('super_admin') ?? false;
     }
 
     public function rules(): array

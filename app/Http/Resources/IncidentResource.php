@@ -54,6 +54,30 @@ class IncidentResource extends JsonResource
                                 : 'ongoing',
 
             'is_active'    => $this->isActive(),
+            'is_locked'    => (bool) $this->is_locked,
+            'locked_at'    => $this->locked_at?->toIso8601String(),
+
+            'assigned_operator' => $this->when(
+                $this->relationLoaded('assignedOperator'),
+                fn () => $this->assignedOperator
+                    ? [
+                        'id'    => $this->assignedOperator->id,
+                        'name'  => $this->assignedOperator->name,
+                        'email' => $this->assignedOperator->email,
+                    ]
+                    : null
+            ),
+
+            'locked_by' => $this->when(
+                $this->relationLoaded('lockedBy'),
+                fn () => $this->lockedBy
+                    ? [
+                        'id'    => $this->lockedBy->id,
+                        'name'  => $this->lockedBy->name,
+                        'email' => $this->lockedBy->email,
+                    ]
+                    : null
+            ),
 
             // Load relationships only when requested
             'robot'   => RobotResource::make($this->whenLoaded('robot')),

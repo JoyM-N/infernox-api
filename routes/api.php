@@ -72,6 +72,12 @@ Route::middleware('auth:sanctum')->group(function () {
     ]);
     Route::post('incidents/{incident}/updates', [IncidentController::class, 'addUpdate'])
          ->name('incidents.updates.store');
+    Route::post('incidents/{incident}/assign', [IncidentController::class, 'assign'])
+         ->name('incidents.assign');
+    Route::post('incidents/{incident}/lock', [IncidentController::class, 'lock'])
+         ->name('incidents.lock');
+    Route::post('incidents/{incident}/unlock', [IncidentController::class, 'unlock'])
+         ->name('incidents.unlock');
 
 });
 

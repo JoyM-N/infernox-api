@@ -15,6 +15,7 @@ class IncidentTest extends TestCase
     use RefreshDatabase;
 
     private User $operator;
+    private User $admin;
     private Robot $robot;
     private Incident $incident;
 
@@ -25,6 +26,9 @@ class IncidentTest extends TestCase
 
         $this->operator = User::factory()->create();
         $this->operator->assignRole('operator');
+
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole('super_admin');
 
         $this->robot = Robot::factory()->create();
 
@@ -115,5 +119,97 @@ class IncidentTest extends TestCase
         $data = $response->json('data');
         $this->assertCount(1, $data);
         $this->assertEquals('open', $data[0]['status']['value']);
+    }
+
+    public function test_operator_can_assign_themselves_to_incident(): void
+    {
+        $this->actingAs($this->operator, 'sanctum')
+            ->postJson("/api/incidents/{$this->incident->id}/assign")
+            ->assertStatus(200)
+            ->assertJsonPath('incident.assigned_operator.id', $this->operator->id);
+
+        $this->assertDatabaseHas('incidents', [
+            'id'                    => $this->incident->id,
+            'assigned_operator_id'  => $this->operator->id,
+        ]);
+    }
+
+    public function test_acknowledging_auto_assigns_operator(): void
+    {
+        $this->actingAs($this->operator, 'sanctum')
+            ->postJson("/api/incidents/{$this->incident->id}/updates", [
+                'note'         => 'Taking this incident',
+                'action_taken' => 'acknowledged',
+            ])
+            ->assertStatus(201);
+
+        $this->assertEquals(
+            $this->operator->id,
+            $this->incident->fresh()->assigned_operator_id
+        );
+    }
+
+    public function test_super_admin_can_lock_incident(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/incidents/{$this->incident->id}/lock")
+            ->assertStatus(200)
+            ->assertJsonPath('incident.is_locked', true);
+
+        $this->assertTrue($this->incident->fresh()->is_locked);
+    }
+
+    public function test_operator_cannot_lock_incident(): void
+    {
+        $this->actingAs($this->operator, 'sanctum')
+            ->postJson("/api/incidents/{$this->incident->id}/lock")
+            ->assertStatus(403);
+    }
+
+    public function test_locked_incident_cannot_be_updated(): void
+    {
+        $this->incident->update([
+            'is_locked' => true,
+            'locked_by' => $this->admin->id,
+            'locked_at' => now(),
+        ]);
+
+        $this->actingAs($this->operator, 'sanctum')
+            ->putJson("/api/incidents/{$this->incident->id}", [
+                'status' => 'investigating',
+            ])
+            ->assertStatus(423);
+    }
+
+    public function test_locked_incident_cannot_receive_updates(): void
+    {
+        $this->incident->update([
+            'is_locked' => true,
+            'locked_by' => $this->admin->id,
+            'locked_at' => now(),
+        ]);
+
+        $this->actingAs($this->operator, 'sanctum')
+            ->postJson("/api/incidents/{$this->incident->id}/updates", [
+                'note'         => 'Trying after lock',
+                'action_taken' => 'investigated',
+            ])
+            ->assertStatus(423);
+    }
+
+    public function test_super_admin_can_unlock_incident(): void
+    {
+        $this->incident->update([
+            'is_locked' => true,
+            'locked_by' => $this->admin->id,
+            'locked_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/incidents/{$this->incident->id}/unlock")
+            ->assertStatus(200)
+            ->assertJsonPath('incident.is_locked', false);
+
+        $this->assertFalse($this->incident->fresh()->is_locked);
     }
 }

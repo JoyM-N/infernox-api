@@ -6,11 +6,15 @@ use App\Http\Resources\CommandResource;
 use App\Models\RobotCommand;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class CommandDispatched implements ShouldBroadcast
+/**
+ * Broadcast immediately (not queued) so the dashboard sees
+ * pending → sent → executed without waiting on the queue worker.
+ */
+class CommandDispatched implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -33,7 +37,7 @@ class CommandDispatched implements ShouldBroadcast
     {
         return [
             'command' => (new CommandResource(
-                $this->command->load('issuedBy')
+                $this->command->loadMissing('issuedBy')
             ))->resolve(),
         ];
     }

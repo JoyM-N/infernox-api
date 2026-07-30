@@ -15,6 +15,28 @@ use Illuminate\Support\Facades\Auth;
 
 class CommandController extends Controller
 {
+    /**
+     * Mission commands that should not stack duplicates while active.
+     *
+     * @var list<string>
+     */
+    private const NON_STACKABLE = [
+        'move_to',
+        'suppress',
+        'return_home',
+        'activate_siren',
+    ];
+
+    /**
+     * Teleop commands replaced by a newer press of the same type.
+     *
+     * @var list<string>
+     */
+    private const REPLACEABLE = [
+        'drive',
+        'arm_joint',
+    ];
+
     // ─────────────────────────────────────────────
     // POST /api/robots/{robot}/commands
     // Operator sends a command to a robot
@@ -23,7 +45,6 @@ class CommandController extends Controller
         SendCommandRequest $request,
         Robot $robot
     ): JsonResponse {
-        // Check robot can receive commands
         if (! $robot->isAvailableForCommand()) {
             return response()->json([
                 'message' => 'Robot is not available for commands.',
@@ -31,28 +52,45 @@ class CommandController extends Controller
             ], 422);
         }
 
-        // Prevent duplicate active commands of same type
-        $duplicate = RobotCommand::where('robot_id', $robot->id)
-            ->where('command_type', $request->command_type)
-            ->whereIn('status', ['pending', 'sent', 'acknowledged'])
-            ->exists();
+        /** @var string $type */
+        $type = (string) $request->validated('command_type');
 
-        if ($duplicate) {
-            return response()->json([
-                'message' => "A {$request->command_type} command is already pending for this robot.",
-            ], 422);
+        // Hard stop — cancel everything still in flight
+        if (in_array($type, ['emergency_stop', 'stop'], true)) {
+            $this->expireActiveCommands($robot);
+        }
+
+        // Teleop — replace any prior pending drive / arm command of same type
+        if (in_array($type, self::REPLACEABLE, true)) {
+            $this->expireActiveCommands($robot, $type);
+        }
+
+        // Mission commands — block duplicate active of same type
+        if (in_array($type, self::NON_STACKABLE, true)) {
+            $duplicate = RobotCommand::where('robot_id', $robot->id)
+                ->where('command_type', $type)
+                ->whereIn('status', ['pending', 'sent', 'acknowledged'])
+                ->exists();
+
+            if ($duplicate) {
+                return response()->json([
+                    'message' => "A {$type} command is already pending for this robot.",
+                ], 422);
+            }
         }
 
         $command = RobotCommand::create([
             'robot_id'     => $robot->id,
             'issued_by'    => Auth::id(),
-            'incident_id'  => $request->incident_id ?? null,
-            'command_type' => $request->command_type,
-            'payload'      => $request->payload ?? null,
+            'incident_id'  => $request->validated('incident_id'),
+            'command_type' => $type,
+            'payload'      => $request->validated('payload'),
             'status'       => CommandStatus::PENDING,
             'issued_at'    => now(),
         ]);
-        // Broadcast to dashboard and robot channel
+
+        $command->load('issuedBy');
+
         broadcast(new CommandDispatched($command));
 
         return response()->json([
@@ -70,12 +108,26 @@ class CommandController extends Controller
         $commands = RobotCommand::where('robot_id', $robot->id)
             ->when(
                 $request->status,
-                fn($q) => $q->where('status', $request->status)
+                fn ($q) => $q->where('status', $request->status)
             )
             ->with('issuedBy')
             ->orderBy('issued_at', 'desc')
             ->paginate(20);
 
         return CommandResource::collection($commands);
+    }
+
+    private function expireActiveCommands(Robot $robot, ?string $commandType = null): void
+    {
+        $commands = RobotCommand::where('robot_id', $robot->id)
+            ->when($commandType, fn ($q) => $q->where('command_type', $commandType))
+            ->whereIn('status', ['pending', 'sent', 'acknowledged'])
+            ->with('issuedBy')
+            ->get();
+
+        foreach ($commands as $command) {
+            $command->update(['status' => CommandStatus::EXPIRED]);
+            broadcast(new CommandDispatched($command->fresh()->load('issuedBy')));
+        }
     }
 }

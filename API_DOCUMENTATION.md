@@ -227,6 +227,37 @@ Authorization: Bearer TOKEN
 ```
 **Action values:** `acknowledged`, `dispatched`, `suppressed`, `investigated`, `escalated`, `resolved`, `false_alarm`
 
+If `action_taken` is `acknowledged` and no operator is assigned yet, the current user is auto-assigned.
+
+### Assign Incident (accountability)
+```
+POST /api/incidents/{id}/assign
+Authorization: Bearer TOKEN
+```
+**Body (optional):**
+```json
+{
+  "operator_id": 2
+}
+```
+- Omit `operator_id` to assign yourself.
+- Only `super_admin` may assign someone else.
+- Locked incidents cannot be reassigned.
+
+### Lock Incident (super_admin only)
+```
+POST /api/incidents/{id}/lock
+Authorization: Bearer TOKEN
+```
+Locks the incident after mitigation. Further status updates and notes return `423 Locked`.
+
+### Unlock Incident (super_admin only)
+```
+POST /api/incidents/{id}/unlock
+Authorization: Bearer TOKEN
+```
+Re-opens a locked incident for corrections.
+
 ---
 
 ## Command Endpoints (Operators)
@@ -252,7 +283,29 @@ Authorization: Bearer TOKEN
 | suppress | `{}` | Activate fire suppression |
 | return_home | `{}` | Return robot to base |
 | activate_siren | `{}` | Activate warning siren |
-| stop | `{}` | Emergency stop |
+| stop | `{}` | Soft stop — expires other pending commands |
+| emergency_stop | `{}` | Hard halt — expires all pending commands |
+| drive | `{"direction": "forward"}` | Manual teleop: `forward`, `reverse`, `left`, `right`, `stop` |
+| arm_joint | `{"joint": 1, "action": "up"}` | Arm teleop: joint `1` or `2`, action `up`, `down`, or `stop` |
+
+**Manual control examples (dashboard teleop):**
+```json
+{ "command_type": "drive", "payload": { "direction": "forward" } }
+```
+```json
+{ "command_type": "drive", "payload": { "direction": "stop" } }
+```
+```json
+{ "command_type": "emergency_stop", "payload": {} }
+```
+```json
+{ "command_type": "arm_joint", "payload": { "joint": 1, "action": "up" } }
+```
+```json
+{ "command_type": "arm_joint", "payload": { "joint": 2, "action": "down" } }
+```
+
+Optional: include `"incident_id"` to link the command to an active incident for audit.
 
 ### List Robot Commands
 ```
@@ -301,7 +354,7 @@ Authorization: Bearer ROBOT_TOKEN
 GET /api/robot/commands/pending
 Authorization: Bearer ROBOT_TOKEN
 ```
-Robot polls this every 5 seconds. Returns pending commands and marks them as `sent`.
+Robot polls this frequently (simulator default: every 500ms). Returns pending commands and marks them as `sent`.
 
 ### Acknowledge Command
 ```
@@ -378,8 +431,8 @@ channel.bind('command.dispatched', (data) => {
 
 | Role | Can Do |
 |------|--------|
-| super_admin | Everything including provisioning robots and managing users |
-| operator | View robots, send commands, manage incidents |
+| super_admin | Everything including provisioning robots, managing users, locking incidents |
+| operator | View robots, manual teleop (drive/arm), manage incidents, take assignment |
 | viewer | Read-only access to everything |
 
 ---

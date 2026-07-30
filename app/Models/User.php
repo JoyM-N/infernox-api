@@ -46,6 +46,11 @@ class User extends Authenticatable
         return $this->hasMany(IncidentUpdate::class);
     }
 
+    public function assignedIncidents(): HasMany
+    {
+        return $this->hasMany(Incident::class, 'assigned_operator_id');
+    }
+
     public function issuedCommands(): HasMany
     {
         return $this->hasMany(RobotCommand::class, 'issued_by');
